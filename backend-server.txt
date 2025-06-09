@@ -1,0 +1,12 @@
+// Import routes
+const authRoutes = require('./routes/auth.routes');
+const productRoutes = require('./routes/product.routes');
+const categoryRoutes = require('./routes/category.routes');
+const cartRoutes = require('./routes/cart.routes');
+const orderRoutes = require('./routes/order.routes');
+const userRoutes = require('./routes/user.routes');
+const adminRoutes = require('./routes/admin.routes');
+const paymentRoutes = require('./routes/payment.routes');
+const searchRoutes = require('./routes/search.routes');
+const wishlistRoutes = require('./routes/wishlist.routes');
+const reviewRoutes = require('./routes/review.routes');
