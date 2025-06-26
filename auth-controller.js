@@ -1,5 +1,6 @@
 const User = require('./user-model.js');
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken'); // Added missing import
 const sendEmail = require('./email-service.js'); // Assuming email-service.js exports the send function directly
 const { generateOTP, verifyOTP } = require('./otp-util.js'); // Using the new placeholder
 const catchAsync = require('./catch-async-util.js');
