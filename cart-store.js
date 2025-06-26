@@ -4,16 +4,25 @@ import { persist } from 'zustand/middleware';
 import toast from 'react-hot-toast';
 
 // --- Start of API Simulation for cart-store.js ---
+
+// Centralized mock product list for simulation consistency across admin and user views
+let mockAllProducts = [
+    { _id: '1', id: '1', name: 'هدفون بی‌سیم سونی WH-1000XM4 (API)', price: 4500000, category: 'electronics', image: '🎧', rating: 4.5, discount: 15, stock: 12, description: 'کیفیت صدای عالی', createdAt: "2023-03-15T10:00:00Z" },
+    { _id: '2', id: '2', name: 'پاوربانک شیائومی 20000mAh (API)', price: 890000, category: 'electronics', image: '🔋', rating: 4.8, discount: 0, stock: 45, description: 'ظرفیت بالا', createdAt: "2023-03-10T10:00:00Z" },
+    { _id: '3', id: '3', name: 'کیف دستی چرم طبیعی (API)', price: 2300000, category: 'personal', image: '👜', rating: 4.2, discount: 25, stock: 8, description: 'چرم اصل', createdAt: "2023-03-01T10:00:00Z" },
+    { _id: '4', id: '4', name: 'ساعت هوشمند اپل واچ سری 8 (API)', price: 12000000, category: 'electronics', image: '⌚', rating: 4.7, discount: 10, stock: 0, description: 'جدیدترین مدل', createdAt: "2023-02-20T10:00:00Z" },
+    { _id: '5', id: '5', name: 'عینک آفتابی ری بن (API)', price: 3200000, category: 'personal', image: '🕶️', rating: 4.4, discount: 0, stock: 20, description: 'محافظ UV', createdAt: "2023-02-15T10:00:00Z" },
+];
+
+
 let simulatedServerCart = {
-  // Structure that might be returned by GET /api/cart
-  // Example: { id: 'cart123', userId: 'user123', items: [], totalPrice: 0, totalItems: 0, ... }
-  // For simplicity, our simulated GET /api/cart will just return items array.
-  // And other operations will return the modified items array.
   items: [],
 };
 
 const findProductInCart = (productId) =>
   simulatedServerCart.items.findIndex(item => item.product.id === productId || item.product._id === productId);
+const findProductInMockList = (productId) =>
+  mockAllProducts.findIndex(p => p.id === productId || p._id === productId);
 
 const calculateCartTotals = (cartItems) => {
   let totalItems = 0;
@@ -34,8 +43,12 @@ const endpoints = {
   updateCartItem: (productId) => `/api/cart/item/${productId}`,
   removeFromCart: (productId) => `/api/cart/item/${productId}`,
   clearCart: '/api/cart/clear',
-  createOrder: '/api/orders', // Added for order creation
-  // syncCart: '/api/cart/sync',
+  createOrder: '/api/orders',
+  // Admin Product Endpoints
+  getAllProducts: '/api/products', // Used by admin and public
+  createProduct: '/api/products',    // POST
+  updateProduct: (productId) => `/api/products/${productId}`, // PATCH
+  deleteProduct: (productId) => `/api/products/${productId}`, // DELETE
 };
 
 const api = {
@@ -43,9 +56,14 @@ const api = {
     console.log(`SIMULATED API GET: ${url}`);
     await new Promise(resolve => setTimeout(resolve, 300));
     if (url === endpoints.cart) {
-      return { data: calculateCartTotals(simulatedServerCart.items) }; // Return items and totals
+      return { data: calculateCartTotals(simulatedServerCart.items) };
     }
-    throw new Error(`Unhandled GET ${url}`);
+    if (url === endpoints.getAllProducts) { // For fetching all products (admin/public)
+      return { data: [...mockAllProducts] }; // Return a copy
+    }
+    // Note: GET /api/products/:id (single product) is simulated in product-detail-page.tsx
+    // It could be centralized here too if needed.
+    throw new Error(`Unhandled GET ${url} in cart-store simulation`);
   },
   post: async (url, data) => {
     console.log(`SIMULATED API POST: ${url}`, data);
@@ -83,9 +101,26 @@ const api = {
         }
       };
     }
-    throw new Error(`Unhandled POST ${url}`);
+    if (url === endpoints.createProduct) {
+      // Admin: Create Product
+      const newProduct = {
+        _id: `prod_${Date.now()}`,
+        id: `prod_${Date.now()}`,
+        ...data,
+        createdAt: new Date().toISOString(),
+        // Ensure basic fields if not provided
+        image: data.image || '🆕',
+        rating: data.rating || 0,
+        reviewsCount: data.reviewsCount || 0,
+        stock: data.stock || 0,
+        discount: data.discount || 0,
+      };
+      mockAllProducts.push(newProduct);
+      return { data: newProduct, message: 'محصول با موفقیت ایجاد شد' };
+    }
+    throw new Error(`Unhandled POST ${url} in cart-store simulation`);
   },
-  put: async (url, data) => {
+  put: async (url, data) => { // Used for cart item updates
     console.log(`SIMULATED API PUT: ${url}`, data);
     await new Promise(resolve => setTimeout(resolve, 300));
     const productId = url.split('/item/')[1]; // Extract productId from URL
@@ -103,7 +138,24 @@ const api = {
       }
       return { data: calculateCartTotals(simulatedServerCart.items) };
     }
-    throw new Error(`Unhandled PUT ${url}`);
+    throw new Error(`Unhandled PUT ${url} in cart-store simulation`);
+  },
+  patch: async (url, data) => { // For Admin: Update Product
+    console.log(`SIMULATED API PATCH: ${url}`, data);
+    await new Promise(resolve => setTimeout(resolve, 300));
+    const productId = url.split('/api/products/')[1];
+    if (url.startsWith('/api/products/')) {
+        const productIndex = findProductInMockList(productId);
+        if (productIndex > -1) {
+            mockAllProducts[productIndex] = { ...mockAllProducts[productIndex], ...data };
+            return { data: mockAllProducts[productIndex], message: 'محصول با موفقیت بروزرسانی شد' };
+        } else {
+            const error = new Error('Simulated API Error');
+            error.response = { data: { message: 'محصول برای بروزرسانی یافت نشد' }, status: 404 };
+            throw error;
+        }
+    }
+    throw new Error(`Unhandled PATCH ${url} in cart-store simulation`);
   },
   delete: async (url) => {
     console.log(`SIMULATED API DELETE: ${url}`);
@@ -120,7 +172,22 @@ const api = {
       simulatedServerCart.items = [];
       return { data: calculateCartTotals(simulatedServerCart.items) };
     }
-    throw new Error(`Unhandled DELETE ${url}`);
+    // Admin: Delete Product
+    if (url.startsWith('/api/products/')) {
+        const productId = url.split('/api/products/')[1];
+        const productIndex = findProductInMockList(productId);
+        if (productIndex > -1) {
+            const deletedProduct = mockAllProducts.splice(productIndex, 1);
+            // Also remove from any carts if it exists there (optional, good practice)
+            simulatedServerCart.items = simulatedServerCart.items.filter(item => (item.product.id || item.product._id) !== productId);
+            return { data: deletedProduct[0], message: 'محصول با موفقیت حذف شد' };
+        } else {
+            const error = new Error('Simulated API Error');
+            error.response = { data: { message: 'محصول برای حذف یافت نشد' }, status: 404 };
+            throw error;
+        }
+    }
+    throw new Error(`Unhandled DELETE ${url} in cart-store simulation`);
   }
 };
 // --- End of API Simulation ---

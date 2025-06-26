@@ -33,9 +33,13 @@ const endpoints = {
   login: '/api/auth/login',
   register: '/api/auth/register', // Added for completeness if register is also refactored
   logout: '/api/auth/logout',     // Added for completeness
-  profile: '/api/auth/me',        // Added for checkAuth
-  updateProfile: '/api/users/profile', // Placeholder, adjust if user-routes.js has this
-  changePassword: '/api/auth/update-password' // From auth-routes.js
+  profile: '/api/auth/me',        // For user profile
+  updateProfile: '/api/users/profile', // Placeholder for user self-update
+  changePassword: '/api/auth/update-password',
+  // Admin Order Endpoints (assuming orders are associated with users, so mockUser.orders is the source)
+  adminGetAllOrders: '/api/orders/admin/all',
+  adminGetOrderById: (orderId) => `/api/orders/admin/${orderId}`,
+  adminUpdateOrderStatus: (orderId) => `/api/orders/admin/${orderId}/status`,
 };
 
 const api = {
@@ -89,13 +93,53 @@ const api = {
     if (url === endpoints.profile) {
       // Simulate fetching user profile if a token is present (logic handled by checkAuth)
       // For simulation, assume token is valid and return mockUser
-      return { data: mockUser };
+      // This mockUser now contains an 'orders' array.
+      return { data: JSON.parse(JSON.stringify(mockUser)) }; // Return a deep copy
+    }
+    if (url === endpoints.adminGetAllOrders) {
+        // Admin: Get all orders (for simulation, just returns all orders from mockUser)
+        // In a real app, this would fetch from a global orders collection.
+        // For now, we assume all orders are tied to our single mockUser for simplicity of simulation.
+        return { data: JSON.parse(JSON.stringify(mockUser.orders || [])) };
+    }
+    if (url.startsWith('/api/orders/admin/')) { // For adminGetOrderById
+        const orderId = url.split('/api/orders/admin/')[1];
+        const order = mockUser.orders.find(o => o.id === orderId || o._id === orderId);
+        if (order) {
+            return { data: JSON.parse(JSON.stringify(order)) };
+        } else {
+            const error = new Error('Simulated API Error');
+            error.response = { data: { message: 'سفارش یافت نشد' }, status: 404 };
+            throw error;
+        }
     }
     const unhandledError = new Error(`Unhandled SIMULATED API GET endpoint: ${url}`);
     unhandledError.response = { data: { message: `Endpoint ${url} not handled in GET simulation.` } };
     throw unhandledError;
   },
-  put: async (url, data) => {
+  patch: async (url, data) => { // For Admin: Update Order Status
+    console.log(`SIMULATED API PATCH: ${url}`, data);
+    await new Promise(resolve => setTimeout(resolve, 300));
+    if (url.startsWith('/api/orders/admin/') && url.endsWith('/status')) {
+        const orderId = url.split('/api/orders/admin/')[1].split('/status')[0];
+        const orderIndex = mockUser.orders.findIndex(o => o.id === orderId || o._id === orderId);
+        if (orderIndex > -1) {
+            mockUser.orders[orderIndex].status = data.status;
+            // Simulate user object update in store if checkAuth was to be called again.
+            // This is a bit tricky as mockUser is module-level.
+            // A more robust simulation might involve a "database" object.
+            return { data: JSON.parse(JSON.stringify(mockUser.orders[orderIndex])), message: 'وضعیت سفارش بروزرسانی شد' };
+        } else {
+            const error = new Error('Simulated API Error');
+            error.response = { data: { message: 'سفارش برای بروزرسانی یافت نشد' }, status: 404 };
+            throw error;
+        }
+    }
+    const unhandledError = new Error(`Unhandled SIMULATED API PATCH endpoint: ${url}`);
+    unhandledError.response = { data: { message: `Endpoint ${url} not handled in PATCH simulation.` } };
+    throw unhandledError;
+  },
+  put: async (url, data) => { // Existing PUT for profile update
     console.log(`SIMULATED API PUT: ${url}`, data);
     await new Promise(resolve => setTimeout(resolve, 500));
 
