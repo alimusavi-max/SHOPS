@@ -23,6 +23,7 @@ import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 import 'swiper/css/thumbs';
+import useCartStore from '@/store/cartStore'; // Import cart store
 
 // Simulated API helper (same as in other files, ensure consistency if shared)
 const mockApiData = {
@@ -61,6 +62,7 @@ const api = {
 const ProductDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const addItemToCart = useCartStore(state => state.addItem); // Get addItem from cart store
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -118,8 +120,11 @@ const ProductDetail = () => {
 
   const handleAddToCart = () => {
     if (!product) return;
-    console.log('Added to cart:', { product, quantity, color: selectedColor });
-    // Actual add to cart logic will be in Phase 3
+    // TODO: Consider selectedColor and selectedSize if they affect the product variant/SKU
+    // For now, addItem expects the base product object and quantity.
+    // The product object should contain all necessary info (id, name, price, image etc.)
+    addItemToCart(product, quantity);
+    // Toast notifications are handled within cartStore's addItem action
   };
 
   const handleToggleWishlist = () => setIsWishlisted(!isWishlisted);

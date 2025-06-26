@@ -1,13 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const { protect } = require('../middleware/auth.middleware');
+const { protect } = require('./auth-middleware.js'); // Corrected path
 const {
   initiatePayment,
   verifyPayment,
   getPaymentStatus,
   getPaymentHistory,
   refundPayment
-} = require('../controllers/payment.controller');
+} = require('./payment-controller.js'); // Corrected path
 
 // All payment routes require authentication
 router.use(protect);
