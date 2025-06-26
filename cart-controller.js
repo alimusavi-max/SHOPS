@@ -1,3 +1,4 @@
+const mongoose = require('mongoose'); // Added for ObjectId validation
 const Cart = require('./cart-model.js'); // Corrected path
 const Product = require('./product-model.js'); // Corrected path
 const catchAsync = require('./catch-async-util.js'); // Corrected path
@@ -55,8 +56,11 @@ exports.addToCart = catchAsync(async (req, res, next) => {
   const userId = req.user.id;
 
   const nQuantity = Number(quantity);
-  if (!productId || !Number.isInteger(nQuantity) || nQuantity < 1) {
-    return next(new AppError('شناسه محصول و تعداد معتبر مورد نیاز است.', 400));
+  if (!productId || !mongoose.Types.ObjectId.isValid(productId)) {
+    return next(new AppError('شناسه محصول نامعتبر است.', 400));
+  }
+  if (!Number.isInteger(nQuantity) || nQuantity < 1) {
+    return next(new AppError('تعداد محصول باید یک عدد صحیح مثبت باشد.', 400));
   }
 
   const product = await Product.findById(productId);
@@ -122,6 +126,10 @@ exports.updateCartItem = catchAsync(async (req, res, next) => {
   const { quantity } = req.body;
   const userId = req.user.id;
 
+  if (!mongoose.Types.ObjectId.isValid(productId)) {
+    return next(new AppError('شناسه محصول در پارامترها نامعتبر است.', 400));
+  }
+
   const newQuantity = Number(quantity);
   if (!Number.isInteger(newQuantity) || newQuantity < 0) { // Allow 0 to trigger removal
     return next(new AppError('تعداد باید یک عدد صحیح غیرمنفی باشد.', 400));
@@ -181,6 +189,10 @@ exports.updateCartItem = catchAsync(async (req, res, next) => {
 exports.removeFromCart = catchAsync(async (req, res, next) => {
   const { productId } = req.params;
   const userId = req.user.id;
+
+  if (!mongoose.Types.ObjectId.isValid(productId)) {
+    return next(new AppError('شناسه محصول در پارامترها نامعتبر است.', 400));
+  }
 
   const cart = await Cart.findOne({ user: userId });
   if (!cart) {
@@ -268,7 +280,16 @@ exports.syncCart = catchAsync(async (req, res, next) => {
     const userId = req.user.id;
 
     if (!Array.isArray(clientItems)) {
-        return next(new AppError('فرمت آیتم‌های ارسالی نامعتبر است.', 400));
+        return next(new AppError('فرمت آیتم‌های ارسالی برای همگام‌سازی باید آرایه باشد.', 400));
+    }
+
+    for (const item of clientItems) {
+        if (!item.productId || !mongoose.Types.ObjectId.isValid(item.productId)) {
+            return next(new AppError(`آیتم ارسالی دارای شناسه محصول نامعتبر است: ${item.productId}`, 400));
+        }
+        if (!Number.isInteger(item.quantity) || item.quantity < 1) {
+            return next(new AppError(`آیتم ارسالی برای محصول ${item.productId} دارای تعداد نامعتبر است: ${item.quantity}`, 400));
+        }
     }
 
     const cart = await Cart.findOneOrCreate(userId);
