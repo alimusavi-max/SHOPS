@@ -10,6 +10,22 @@ const mockUser = {
   name: 'کاربر تست',
   email: 'test@example.com',
   role: 'user',
+  orders: [ // Sample orders for the mock user
+    {
+      _id: 'order1', id: 'order1', orderNumber: 'ORD-1001', createdAt: new Date('2023-03-15T10:30:00Z').toISOString(),
+      totalAmount: 4825000, status: 'delivered',
+      items: [
+        { product: { _id: 'prod1', id: 'prod1', name: 'هدفون بی‌سیم (سفارش ۱)', image: '🎧' }, quantity: 1, price: 3825000 }
+      ]
+    },
+    {
+      _id: 'order2', id: 'order2', orderNumber: 'ORD-1002', createdAt: new Date('2023-03-20T14:00:00Z').toISOString(),
+      totalAmount: 890000, status: 'processing',
+      items: [
+        { product: { _id: 'prod2', id: 'prod2', name: 'پاوربانک (سفارش ۲)', image: '🔋' }, quantity: 1, price: 890000 }
+      ]
+    },
+  ]
   // other fields that might be expected by the app
 };
 
@@ -104,24 +120,24 @@ const useAuthStore = create(
       token: null,
       isAuthenticated: false,
       isLoading: false,
-      
+
       // Login action
       login: async (credentials) => {
         set({ isLoading: true });
         try {
           const response = await api.post(endpoints.login, credentials);
           const { user, token } = response.data;
-          
+
           set({
             user,
             token,
             isAuthenticated: true,
             isLoading: false,
           });
-          
+
           // Save token to localStorage
           localStorage.setItem('auth_token', token);
-          
+
           toast.success(`خوش آمدید ${user.name}`);
           return { success: true };
         } catch (error) {
@@ -129,23 +145,23 @@ const useAuthStore = create(
           return { success: false, error: error.response?.data?.message };
         }
       },
-      
+
       // Register action
       register: async (userData) => {
         set({ isLoading: true });
         try {
           const response = await api.post(endpoints.register, userData);
           const { user, token } = response.data;
-          
+
           set({
             user,
             token,
             isAuthenticated: true,
             isLoading: false,
           });
-          
+
           localStorage.setItem('auth_token', token);
-          
+
           toast.success('ثبت نام با موفقیت انجام شد');
           return { success: true };
         } catch (error) {
@@ -153,7 +169,7 @@ const useAuthStore = create(
           return { success: false, error: error.response?.data?.message };
         }
       },
-      
+
       // Logout action
       logout: async () => {
         try {
@@ -166,24 +182,24 @@ const useAuthStore = create(
             token: null,
             isAuthenticated: false,
           });
-          
+
           localStorage.removeItem('auth_token');
           toast.success('با موفقیت خارج شدید');
         }
       },
-      
+
       // Update profile
       updateProfile: async (profileData) => {
         set({ isLoading: true });
         try {
           const response = await api.put(endpoints.updateProfile, profileData);
           const updatedUser = response.data;
-          
+
           set({
             user: updatedUser,
             isLoading: false,
           });
-          
+
           toast.success('پروفایل با موفقیت بروزرسانی شد');
           return { success: true };
         } catch (error) {
@@ -191,7 +207,7 @@ const useAuthStore = create(
           return { success: false, error: error.response?.data?.message };
         }
       },
-      
+
       // Check auth status
       checkAuth: async () => {
         const token = localStorage.getItem('auth_token');
@@ -199,7 +215,7 @@ const useAuthStore = create(
           set({ isAuthenticated: false, user: null, token: null });
           return;
         }
-        
+
         set({ isLoading: true }); // Indicate loading during checkAuth
         try {
           const response = await api.get(endpoints.profile);
@@ -219,14 +235,14 @@ const useAuthStore = create(
           localStorage.removeItem('auth_token');
         }
       },
-      
+
       // Change password
       changePassword: async (passwordData) => {
         set({ isLoading: true });
         try {
           await api.post(endpoints.changePassword, passwordData);
           set({ isLoading: false });
-          
+
           toast.success('رمز عبور با موفقیت تغییر یافت');
           return { success: true };
         } catch (error) {
@@ -234,7 +250,7 @@ const useAuthStore = create(
           return { success: false, error: error.response?.data?.message };
         }
       },
-      
+
       // Clear auth state
       clearAuth: () => {
         set({
@@ -248,7 +264,7 @@ const useAuthStore = create(
     }),
     {
       name: 'auth-storage', // unique name
-      partialize: (state) => ({ 
+      partialize: (state) => ({
         user: state.user,
         token: state.token,
         isAuthenticated: state.isAuthenticated,

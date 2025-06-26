@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { protect } = require('../middleware/auth.middleware');
+const { protect } = require('./auth-middleware.js'); // Corrected path
 const {
   getCart,
   addToCart,
@@ -8,7 +8,7 @@ const {
   removeFromCart,
   clearCart,
   syncCart
-} = require('../controllers/cart.controller');
+} = require('./cart-controller.js'); // Corrected path
 
 // All cart routes require authentication
 router.use(protect);
