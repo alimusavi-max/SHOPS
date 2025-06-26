@@ -10,6 +10,9 @@ const orderItemSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  image: { // Denormalized product image
+    type: String,
+  },
   price: {
     type: Number,
     required: true
