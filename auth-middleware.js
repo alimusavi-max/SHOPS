@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
-const catchAsync = require('../utils/catchAsync');
-const AppError = require('../utils/appError');
+const User = require('./user-model.js');
+const catchAsync = require('./catch-async-util.js');
+const AppError = require('./app-error-util.js');
 
 // Protect routes - Authentication check
 exports.protect = catchAsync(async (req, res, next) => {
