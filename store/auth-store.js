@@ -1,7 +1,101 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import api, { endpoints } from '@/services/api';
+// import api, { endpoints } from '@/services/api'; // Original import, replaced with simulation
 import toast from 'react-hot-toast';
+
+// --- Start of API Simulation for auth-store.js ---
+const mockUser = {
+  _id: 'user123',
+  id: 'user123', // often APIs return 'id' as well or frontend expects it
+  name: 'کاربر تست',
+  email: 'test@example.com',
+  role: 'user',
+  // other fields that might be expected by the app
+};
+
+const endpoints = {
+  login: '/api/auth/login',
+  register: '/api/auth/register', // Added for completeness if register is also refactored
+  logout: '/api/auth/logout',     // Added for completeness
+  profile: '/api/auth/me',        // Added for checkAuth
+  updateProfile: '/api/users/profile', // Placeholder, adjust if user-routes.js has this
+  changePassword: '/api/auth/update-password' // From auth-routes.js
+};
+
+const api = {
+  post: async (url, data) => {
+    console.log(`SIMULATED API POST: ${url}`, data);
+    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate delay
+
+    if (url === endpoints.login) {
+      if (data.email === 'test@example.com' && data.password === 'password') {
+        return {
+          data: {
+            user: mockUser,
+            token: 'mock-jwt-token-12345',
+            refreshToken: 'mock-refresh-token-67890' // auth-controller also sends this
+          }
+        };
+      } else {
+        // Simulate an error structure that the store's catch block might expect
+        const error = new Error('Simulated API Error');
+        error.response = { data: { message: 'ایمیل یا رمز عبور نامعتبر است' } };
+        throw error;
+      }
+    }
+    if (url === endpoints.register) {
+      // Simulate registration success
+      return {
+        data: {
+          user: { ...mockUser, email: data.email, name: data.name || 'کاربر جدید' },
+          token: 'new-mock-jwt-token-for-register',
+          refreshToken: 'new-mock-refresh-token'
+        }
+      };
+    }
+    if (url === endpoints.logout) {
+      return { data: { success: true, message: 'با موفقیت خارج شدید (سیمولیتد)'}};
+    }
+    if (url === endpoints.changePassword) {
+        // Simulate success, no specific data needed beyond status
+        return { data: { success: true, message: 'رمز عبور با موفقیت تغییر یافت (سیمولیتد)' } };
+    }
+
+    // Default for unhandled POST endpoints
+    const unhandledError = new Error(`Unhandled SIMULATED API POST endpoint: ${url}`);
+    unhandledError.response = { data: { message: `Endpoint ${url} not handled in POST simulation.` } };
+    throw unhandledError;
+  },
+  get: async (url) => {
+    console.log(`SIMULATED API GET: ${url}`);
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    if (url === endpoints.profile) {
+      // Simulate fetching user profile if a token is present (logic handled by checkAuth)
+      // For simulation, assume token is valid and return mockUser
+      return { data: mockUser };
+    }
+    const unhandledError = new Error(`Unhandled SIMULATED API GET endpoint: ${url}`);
+    unhandledError.response = { data: { message: `Endpoint ${url} not handled in GET simulation.` } };
+    throw unhandledError;
+  },
+  put: async (url, data) => {
+    console.log(`SIMULATED API PUT: ${url}`, data);
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    if (url === endpoints.updateProfile) {
+        // Simulate profile update
+        const updatedUser = { ...mockUser, ...data };
+        // Update the mockUser in the simulation so getProfile reflects changes
+        Object.assign(mockUser, updatedUser);
+        return { data: updatedUser };
+    }
+    const unhandledError = new Error(`Unhandled SIMULATED API PUT endpoint: ${url}`);
+    unhandledError.response = { data: { message: `Endpoint ${url} not handled in PUT simulation.` } };
+    throw unhandledError;
+  }
+};
+// --- End of API Simulation ---
 
 const useAuthStore = create(
   persist(
@@ -106,18 +200,21 @@ const useAuthStore = create(
           return;
         }
         
+        set({ isLoading: true }); // Indicate loading during checkAuth
         try {
           const response = await api.get(endpoints.profile);
           set({
             user: response.data,
             token,
             isAuthenticated: true,
+            isLoading: false,
           });
         } catch (error) {
           set({
             user: null,
             token: null,
             isAuthenticated: false,
+            isLoading: false,
           });
           localStorage.removeItem('auth_token');
         }
