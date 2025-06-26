@@ -45,6 +45,13 @@ const createSendToken = (user, statusCode, res) => {
 // Register new user
 exports.register = catchAsync(async (req, res, next) => {
   const { name, email, phone, password } = req.body;
+
+  if (!name || !email || !phone || !password) {
+    return next(new AppError('لطفا تمامی فیلدهای الزامی (نام، ایمیل، تلفن، رمز عبور) را وارد کنید.', 400));
+  }
+  // Further validation (email format, phone format, password complexity)
+  // is largely handled by Mongoose schema in user-model.js.
+  // Mongoose will throw a ValidationError if schema rules are violated upon User.create().
   
   // Check if user exists
   const existingUser = await User.findOne({
@@ -203,6 +210,14 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
 exports.resetPassword = catchAsync(async (req, res, next) => {
   const { token } = req.params;
   const { password } = req.body;
+
+  if (!token) {
+    return next(new AppError('توکن بازیابی نامعتبر یا ارسال نشده است.', 400));
+  }
+  if (!password) {
+    return next(new AppError('رمز عبور جدید الزامی است.', 400));
+  }
+  // Password minlength will be checked by Mongoose schema on user.save()
   
   // Get user based on token
   const hashedToken = crypto
@@ -232,6 +247,11 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
 // Update password
 exports.updatePassword = catchAsync(async (req, res, next) => {
   const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword) {
+    return next(new AppError('رمز عبور فعلی و رمز عبور جدید الزامی هستند.', 400));
+  }
+  // Password minlength for newPassword will be checked by Mongoose schema on user.save()
   
   // Get user from collection
   const user = await User.findById(req.user.id).select('+password');
@@ -252,6 +272,10 @@ exports.updatePassword = catchAsync(async (req, res, next) => {
 // Verify email
 exports.verifyEmail = catchAsync(async (req, res, next) => {
   const { token } = req.params;
+
+  if (!token) {
+    return next(new AppError('توکن تایید ایمیل نامعتبر یا ارسال نشده است.', 400));
+  }
   
   // Get user based on token
   const hashedToken = crypto
@@ -283,6 +307,13 @@ exports.verifyEmail = catchAsync(async (req, res, next) => {
 // Send OTP for phone verification
 exports.sendPhoneOTP = catchAsync(async (req, res, next) => {
   const { phone } = req.body;
+
+  if (!phone) {
+    return next(new AppError('شماره تلفن برای ارسال کد تایید الزامی است.', 400));
+  }
+  // Phone format validation is handled by Mongoose schema if user is being created/updated
+  // or should be handled by a regex here if it's for any arbitrary phone.
+  // Assuming user-model's regex is implicitly used or a generic check is enough for now.
   
   // Generate and send OTP
   await generateOTP(phone);
@@ -296,6 +327,14 @@ exports.sendPhoneOTP = catchAsync(async (req, res, next) => {
 // Verify phone with OTP
 exports.verifyPhone = catchAsync(async (req, res, next) => {
   const { phone, otp } = req.body;
+
+  if (!phone || !otp) {
+    return next(new AppError('شماره تلفن و کد تایید الزامی هستند.', 400));
+  }
+  // Basic OTP format check (e.g., 6 digits) - otp-util currently generates 6 digits
+  if (!/^\d{6}$/.test(otp)) {
+      return next(new AppError('فرمت کد تایید نامعتبر است. باید ۶ رقم باشد.', 400));
+  }
   
   // Verify OTP
   const isValid = await verifyOTP(phone, otp);

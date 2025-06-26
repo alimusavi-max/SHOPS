@@ -1,3 +1,4 @@
+const mongoose = require('mongoose'); // Added for ObjectId validation
 const Order = require('./order-model.js');
 const Cart = require('./cart-model.js');
 const Product = require('./product-model.js');
@@ -17,6 +18,19 @@ const populateOrderDetails = (query) => {
 exports.createOrder = catchAsync(async (req, res, next) => {
   const userId = req.user.id;
   const { shippingAddressId, shippingMethodId, paymentMethod, customerNotes } = req.body;
+
+  // --- Input Validation ---
+  if (!shippingAddressId || !mongoose.Types.ObjectId.isValid(shippingAddressId)) {
+    return next(new AppError('شناسه آدرس ارسال نامعتبر است.', 400));
+  }
+  const validPaymentMethods = Order.schema.path('paymentMethod').enumValues;
+  if (!paymentMethod || !validPaymentMethods.includes(paymentMethod)) {
+    return next(new AppError(`روش پرداخت نامعتبر است. مقادیر مجاز: ${validPaymentMethods.join(', ')}`, 400));
+  }
+  if (customerNotes && typeof customerNotes !== 'string') {
+    return next(new AppError('یادداشت مشتری باید به صورت متن باشد.', 400));
+  }
+  const notesToSave = customerNotes ? customerNotes.trim().slice(0, 500) : undefined; // Example: trim and limit length
 
   // 1. Get user's cart
   const cart = await Cart.findOne({ user: userId });
@@ -97,7 +111,7 @@ exports.createOrder = catchAsync(async (req, res, next) => {
     totalAmount,
     status: paymentMethod === 'cash_on_delivery' ? 'pending_confirmation' : 'pending_payment', // Initial status
     isPaid: false, // Will be updated upon successful payment
-    notes: customerNotes
+    notes: notesToSave
   };
 
   const order = await Order.create(orderData);
@@ -155,6 +169,9 @@ exports.getMyOrders = catchAsync(async (req, res, next) => {
 
 // Get a specific order by ID (for user or admin)
 exports.getOrderById = catchAsync(async (req, res, next) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return next(new AppError('شناسه سفارش نامعتبر است.', 400));
+  }
   const query = Order.findById(req.params.id);
   const order = await populateOrderDetails(query);
 
@@ -180,19 +197,41 @@ exports.getOrderById = catchAsync(async (req, res, next) => {
 
 // Get all orders (Admin)
 exports.getAllOrdersAdmin = catchAsync(async (req, res, next) => {
-  // Basic pagination (can be enhanced with APIFeatures or model static method like Product.searchProducts)
-  const page = parseInt(req.query.page, 10) || 1;
-  const limit = parseInt(req.query.limit, 10) || 10;
+  let { page, limit, status, userId, sort } = req.query;
+
+  page = Math.max(1, parseInt(page, 10) || 1);
+  limit = Math.min(100, Math.max(1, parseInt(limit, 10) || 10)); // Default 10, max 100
   const skip = (page - 1) * limit;
 
-  // Basic filtering (can be expanded)
   const filter = {};
-  if (req.query.status) filter.status = req.query.status;
-  if (req.query.userId) filter.user = req.query.userId;
-  // Add date range filters, search by orderNumber, etc.
+  if (status) {
+    const validStatuses = Order.schema.path('status').enumValues;
+    if (!validStatuses.includes(status)) {
+      return next(new AppError(`وضعیت نامعتبر. مقادیر مجاز: ${validStatuses.join(', ')}`, 400));
+    }
+    filter.status = status;
+  }
+  if (userId) {
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return next(new AppError('شناسه کاربر نامعتبر است.', 400));
+    }
+    filter.user = userId;
+  }
+
+  // Basic sorting, can be expanded
+  let sortOption = { createdAt: -1 }; // Default sort: newest first
+  if (sort) {
+      const [sortField, sortOrder] = sort.split(':');
+      if (sortField && (sortOrder === 'asc' || sortOrder === 'desc')) {
+          sortOption = { [sortField]: sortOrder === 'asc' ? 1 : -1 };
+      } else {
+        // Silently ignore invalid sort or return error
+      }
+  }
+  // Add more specific search by orderNumber, customer details etc. if needed.
 
   const ordersQuery = Order.find(filter)
-    .sort('-createdAt')
+    .sort(sortOption)
     .skip(skip)
     .limit(limit);
 
@@ -213,17 +252,36 @@ exports.getAllOrdersAdmin = catchAsync(async (req, res, next) => {
 
 // Update order status (Admin)
 exports.updateOrderStatusAdmin = catchAsync(async (req, res, next) => {
-  const { status, note } = req.body; // New status and optional note
+  const { status, note } = req.body;
+  const { id: orderId } = req.params;
 
-  const order = await Order.findById(req.params.id);
+  if (!mongoose.Types.ObjectId.isValid(orderId)) {
+    return next(new AppError('شناسه سفارش نامعتبر است.', 400));
+  }
+
+  if (!status) {
+    return next(new AppError('وضعیت جدید سفارش الزامی است.', 400));
+  }
+  const validStatuses = Order.schema.path('status').enumValues;
+  if (!validStatuses.includes(status)) {
+    return next(new AppError(`وضعیت نامعتبر. مقادیر مجاز: ${validStatuses.join(', ')}`, 400));
+  }
+  if (note && typeof note !== 'string') {
+    return next(new AppError('یادداشت باید به صورت متن باشد.', 400));
+  }
+  const noteToSave = note ? note.trim().slice(0, 250) : 'وضعیت توسط ادمین تغییر کرد';
+
+
+  const order = await Order.findById(orderId);
   if (!order) {
     return next(new AppError('سفارشی با این شناسه یافت نشد.', 404));
   }
 
   // Use the model method to update status and handle stock adjustments if necessary
-  await order.updateStatus(status, note || 'وضعیت توسط ادمین تغییر کرد', req.user.id);
+  // The updateStatus method in model already handles valid transitions.
+  await order.updateStatus(status, noteToSave, req.user.id);
 
-  const updatedOrder = await populateOrderDetails(Order.findById(order._id));
+  const updatedOrder = await populateOrderDetails(Order.findById(order._id)); // Re-fetch to get populated data
 
   res.status(200).json({
     status: 'success',
