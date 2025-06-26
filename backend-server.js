@@ -9,14 +9,14 @@ const compression = require('compression');
 require('dotenv').config();
 
 // Import routes
-const authRoutes = require('./routes/auth.routes');
-const productRoutes = require('./routes/product.routes');
-const categoryRoutes = require('./routes/category.routes');
-const cartRoutes = require('./routes/cart.routes');
-const orderRoutes = require('./routes/order.routes');
-const userRoutes = require('./routes/user.routes');
-const adminRoutes = require('./routes/admin.routes');
-const paymentRoutes = require('./routes/payment.routes');
+const authRoutes = require('./auth-routes.js');
+const productRoutes = require('./product-routes.js'); // This file will be created in the next step
+const categoryRoutes = require('./category-routes.js');
+const cartRoutes = require('./cart-routes.js');
+const orderRoutes = require('./order-routes.js'); // Assuming order-routes.js exists or will be created
+const userRoutes = require('./user-routes.js'); // Assuming user-routes.js exists or will be created
+const adminRoutes = require('./admin-routes.js'); // This file will be created in the next step
+const paymentRoutes = require('./payment-routes.js');
 
 // Initialize Express app
 const app = express();

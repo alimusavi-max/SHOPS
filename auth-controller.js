@@ -1,9 +1,9 @@
-const User = require('../models/User');
+const User = require('./user-model.js');
 const crypto = require('crypto');
-const sendEmail = require('../utils/sendEmail');
-const { generateOTP, verifyOTP } = require('../utils/otp');
-const catchAsync = require('../utils/catchAsync');
-const AppError = require('../utils/appError');
+const sendEmail = require('./email-service.js'); // Assuming email-service.js exports the send function directly
+const { generateOTP, verifyOTP } = require('./otp-util.js'); // Using the new placeholder
+const catchAsync = require('./catch-async-util.js');
+const AppError = require('./app-error-util.js');
 
 // Generate and send token response
 const createSendToken = (user, statusCode, res) => {
