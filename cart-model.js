@@ -16,6 +16,17 @@ const cartItemSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  // Denormalized fields for easier cart display without constant population
+  name: {
+    type: String,
+    required: [true, 'نام محصول در سبد خرید الزامی است']
+  },
+  image: {
+    type: String // URL or path to product image
+  },
+  // Storing discount on item level might be redundant if price is already final snapshot
+  // However, if we want to show original price & discount, it's useful.
+  // The current product model has discount, so this might be product's discount at time of add.
   discount: {
     type: Number,
     default: 0
@@ -45,6 +56,17 @@ const cartSchema = new mongoose.Schema({
   expiresAt: {
     type: Date,
     default: () => new Date(+new Date() + 30*24*60*60*1000) // 30 days
+  },
+  // Stored calculated totals
+  totalPrice: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  totalItems: {
+    type: Number,
+    default: 0,
+    min: 0
   }
 }, {
   timestamps: true,
@@ -52,39 +74,52 @@ const cartSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
+// Pre-save hook to calculate totalItems and totalPrice (excluding coupon)
+cartSchema.pre('save', function(next) {
+  let itemsCount = 0;
+  let priceSum = 0;
+
+  if (this.items && this.items.length > 0) {
+    this.items.forEach(item => {
+      itemsCount += item.quantity;
+      // item.price is the price of ONE unit of the product AT THE TIME IT WAS ADDED TO CART.
+      // This price should already reflect any product-specific discounts.
+      priceSum += (item.price * item.quantity);
+    });
+  }
+
+  this.totalItems = itemsCount;
+  this.totalPrice = priceSum;
+  next();
+});
+
 // Indexes
 cartSchema.index({ user: 1 });
 cartSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
-// Calculate totals
-cartSchema.methods.calculateTotals = function() {
-  let subtotal = 0;
-  let totalDiscount = 0;
+// Calculate totals method (for display, including coupon)
+// This method now primarily calculates the effect of a coupon on the pre-calculated totalPrice.
+cartSchema.methods.calculateTotalsForDisplay = function() {
+  const subtotalAfterItemDiscounts = this.totalPrice; // From pre-save hook
+  let couponDiscountAmount = 0;
   
-  this.items.forEach(item => {
-    const itemTotal = item.price * item.quantity;
-    const itemDiscount = (item.price * item.discount / 100) * item.quantity;
-    
-    subtotal += itemTotal;
-    totalDiscount += itemDiscount;
-  });
-  
-  // Apply coupon if exists
-  if (this.coupon && this.coupon.code) {
+  if (this.coupon && this.coupon.code && this.coupon.discount > 0) {
     if (this.coupon.type === 'percentage') {
-      const couponDiscount = (subtotal - totalDiscount) * (this.coupon.discount / 100);
-      totalDiscount += couponDiscount;
-    } else {
-      totalDiscount += this.coupon.discount;
+      couponDiscountAmount = subtotalAfterItemDiscounts * (this.coupon.discount / 100);
+    } else { // fixed amount
+      couponDiscountAmount = this.coupon.discount;
     }
+    // Ensure coupon discount doesn't make total negative or exceed the subtotal
+    couponDiscountAmount = Math.min(couponDiscountAmount, subtotalAfterItemDiscounts);
   }
   
-  const total = subtotal - totalDiscount;
+  const finalAmount = subtotalAfterItemDiscounts - couponDiscountAmount;
   
   return {
-    subtotal,
-    totalDiscount,
-    total
+    // subtotal: this.items.reduce((acc, item) => acc + ( (item.product.originalPrice || item.price) * item.quantity), 0), // If you need original subtotal before product discounts
+    subtotalAfterItemDiscounts, // This is the sum of (item.price * item.quantity), effectively subtotal after product discounts
+    couponDiscount: couponDiscountAmount,
+    total: finalAmount // Final amount after coupon is applied
   };
 };
 
@@ -190,6 +225,15 @@ cartSchema.statics.cleanExpiredCarts = async function() {
     expiresAt: { $lt: new Date() }
   });
   return expiredCarts.deletedCount;
+};
+
+// Static method to find or create a cart for a user
+cartSchema.statics.findOneOrCreate = async function(userId) {
+  let cart = await this.findOne({ user: userId });
+  if (!cart) {
+    cart = await this.create({ user: userId, items: [] });
+  }
+  return cart;
 };
 
 const Cart = mongoose.model('Cart', cartSchema);
