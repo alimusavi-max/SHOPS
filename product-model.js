@@ -55,6 +55,11 @@ const productSchema = new mongoose.Schema({
     required: [true, 'قیمت محصول الزامی است'],
     min: [0, 'قیمت نمی‌تواند منفی باشد']
   },
+  costPrice: { // Added for accounting/profit calculation
+    type: Number,
+    default: 0,
+    min: [0, 'قیمت خرید نمی‌تواند منفی باشد']
+  },
   discount: {
     type: Number,
     default: 0,
