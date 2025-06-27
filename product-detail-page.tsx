@@ -23,41 +23,10 @@ import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 import 'swiper/css/thumbs';
-import useCartStore from '@/store/cartStore'; // Import cart store
+import useCartStore from '@/store/cartStore';
+import apiGlobal, { endpoints as globalEndpoints } from '@/services/api'; // Use global api instance
 
-// Simulated API helper (same as in other files, ensure consistency if shared)
-const mockApiData = {
-  products: [
-    { _id: '1', id: '1', name: 'هدفون بی‌سیم سونی WH-1000XM4 (API)', price: 4500000, discount: 15, category: { name: 'لوازم برقی', slug: 'electronics' }, brand: 'Sony', rating: 4.5, reviewsCount: 126, inStock: true, stock: 12, sku: 'SNY-WH1000XM4', images: ['🎧','🎧','🎧','🎧'], colors: [{ name: 'مشکی', hex: '#000000', inStock: true }, { name: 'نقره‌ای', hex: '#C0C0C0', inStock: true }, { name: 'آبی شب', hex: '#191970', inStock: false }], sizes: [], description: 'هدفون بی‌سیم سونی WH-1000XM4 با کیفیت صدای فوق‌العاده و نویز کنسلینگ پیشرفته، بهترین همراه شما برای گوش دادن به موسیقی است. این هدفون با تکنولوژی‌های پیشرفته سونی، تجربه‌ای بی‌نظیر از شنیدن موسیقی را برای شما فراهم می‌کند.', features: ['نویز کنسلینگ هوشمند با پردازنده QN1', 'باتری 30 ساعته با شارژ سریع', 'کیفیت صدای Hi-Res و LDAC'], specifications: { 'نوع اتصال': 'بی‌سیم (بلوتوث 5.0)', 'وزن': '254 گرم', 'گارانتی': '18 ماه گارانتی شرکتی' }, warranty: '18 ماه گارانتی شرکتی', shippingInfo: { freeShipping: true, estimatedDelivery: '3 تا 5 روز کاری' }, relatedProductsData: [{ _id: '2', id: '2', name: 'کیس ایرپاد (Related API)', price: 350000, image: '📦', category: {slug: 'accessories'} }] },
-    { _id: '2', id: '2', name: 'پاوربانک شیائومی 20000mAh (API)', price: 890000, discount: 0, category: { name: 'لوازم برقی', slug: 'electronics' }, brand: 'Xiaomi', rating: 4.8, reviewsCount: 89, inStock: true, stock: 45, sku: 'XMI-PB20K', images: ['🔋','🔋'], colors: [{ name: 'مشکی', hex: '#000000', inStock: true }], description: 'پاوربانک شیائومی با ظرفیت بالا...', features: ['ظرفیت 20000mAh', 'شارژ سریع'], specifications: { 'ظرفیت': '20000mAh' }, relatedProductsData: [{_id: '1', id: '1', name: 'هدفون سونی (Related API)', price: 4500000, image: '🎧', category: {slug: 'electronics'} }] },
-    { _id: '3', id: '3', name: 'کیف دستی چرم (API)', price: 2300000, discount: 20, category: { name: 'وسایل شخصی', slug: 'personal' }, brand: 'Generic', rating: 4.2, reviewsCount: 30, inStock: true, stock: 5, sku: 'BAG-001', images: ['👜'], colors: [], description: 'کیف چرمی زیبا.', features: [], specifications: {}, relatedProductsData: [] },
-    { _id: '4', id: '4', name: 'ساعت هوشمند (API)', price: 1200000, discount: 0, category: { name: 'پوشاک', slug: 'fashion' }, brand: 'TechBrand', rating: 4.0, reviewsCount: 50, inStock: true, stock: 10, sku: 'SW-002', images: ['⌚'], colors: [], description: 'ساعت هوشمند.', features: [], specifications: {}, relatedProductsData: [] },
-
-  ],
-};
-
-const api = {
-  get: async (url) => {
-    console.log(`Fetching ${url}`);
-    await new Promise(resolve => setTimeout(resolve, 500));
-    if (url.startsWith('/api/products/')) {
-      const productId = url.split('/api/products/')[1];
-      const foundProduct = mockApiData.products.find(p => p.id === productId);
-      if (foundProduct) {
-        const productWithFinalPrice = {
-          ...foundProduct,
-          finalPrice: foundProduct.price - (foundProduct.price * (foundProduct.discount || 0) / 100)
-        };
-        return { ok: true, json: async () => ({ message: 'Product found', data: productWithFinalPrice }) };
-      }
-      return { ok: false, status: 404, json: async () => ({ message: 'Product not found' }) };
-    }
-    if (url === '/api/products') {
-        return { ok: true, json: async () => ({ message: 'All products', data: mockApiData.products })};
-    }
-    return { ok: false, status: 404, json: async () => ({ message: `Endpoint ${url} not mocked for detail page` }) };
-  }
-};
+// Removed local 'api' simulation object and mockApiData
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -78,37 +47,60 @@ const ProductDetail = () => {
   useEffect(() => {
     const fetchProductDetails = async () => {
       if (!id) {
-        setError('شناسه محصول نامعتبر است'); setLoading(false); return;
+        setError('شناسه محصول نامعتبر است');
+        setLoading(false);
+        return;
       }
-      setLoading(true); setError(null); setProduct(null); // Reset product on ID change
+      setLoading(true);
+      setError(null);
+      setProduct(null);
       try {
-        const response = await api.get(`/api/products/${id}`);
-        if (!response.ok) {
-          setError(response.status === 404 ? 'محصول مورد نظر یافت نشد.' : `خطا در دریافت اطلاعات: ${response.status}`);
+        // apiGlobal response interceptor returns response.data directly
+        const response = await apiGlobal.get(globalEndpoints.productById(id));
+        // Assuming backend returns { status: 'success', data: { product: {...} } }
+        const fetchedProduct = response.data?.product || response.data;
+
+        if (!fetchedProduct) { // If API returns success but no product data (should ideally be a 404 caught by interceptor)
+            setError('محصول مورد نظر یافت نشد.');
         } else {
-          const result = await response.json();
-          setProduct(result.data);
-          if (result.data && result.data.relatedProductsData && result.data.relatedProductsData.length > 0) {
-            setRelatedProducts(result.data.relatedProductsData);
-          } else if (result.data) { // Fallback for related products
-            const allProductsResponse = await api.get('/api/products');
-            if (allProductsResponse.ok) {
-              const allProdsResult = await allProductsResponse.json();
-              setRelatedProducts(
-                (allProdsResult.data || []).filter(p => p.id !== id && p.category.slug === result.data.category.slug).slice(0, 4)
-              );
+            setProduct(fetchedProduct);
+            // Handle related products:
+            // Option 1: If API sends relatedProducts directly within fetchedProduct
+            if (fetchedProduct.relatedProducts && fetchedProduct.relatedProducts.length > 0) {
+                setRelatedProducts(fetchedProduct.relatedProducts);
             }
-          }
+            // Option 2: Fallback to fetch some general products (e.g., from same category, excluding current)
+            else if (fetchedProduct.category) {
+                try {
+                    // Example: fetch other products from the same category
+                    // The product controller's getAllProducts can take a category filter
+                    // globalEndpoints.products might need to be adjusted to allow query params easily
+                    // For now, let's fetch all and filter, or assume a specific related products endpoint if available
+                    const relatedResponse = await apiGlobal.get(`${globalEndpoints.products}?category=${fetchedProduct.category.slug}&limit=5`);
+                    setRelatedProducts(
+                        (relatedResponse.data?.products || relatedResponse.data || [])
+                        .filter(p => (p.id || p._id) !== id)
+                        .slice(0, 4)
+                    );
+                } catch (relatedError) {
+                    console.error("Failed to fetch related products:", relatedError);
+                    // Non-critical, so don't set main error state
+                }
+            }
         }
-      } catch (e) {
+      } catch (e) { // Errors should largely be handled by the global interceptor (toast, redirect)
         console.error("Failed to fetch product details:", e);
-        setError(e.message || 'خطای ناشناخته در دریافت اطلاعات.');
+        // The interceptor might throw an error that's caught here if not re-thrown as Promise.reject(error)
+        // Or if it's a non-HTTP error.
+        if (!error) { // Avoid overwriting specific 404 error set above if interceptor didn't set one.
+             setError(e.message || 'خطای ناشناخته در دریافت اطلاعات محصول.');
+        }
       } finally {
         setLoading(false);
       }
     };
     fetchProductDetails();
-  }, [id]);
+  }, [id, error]); // Added `error` to dependency array to avoid potential issues if error state is used to re-trigger
 
   const formatPrice = (price) => price ? new Intl.NumberFormat('fa-IR').format(price) : '0';
 

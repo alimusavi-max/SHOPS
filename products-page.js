@@ -12,65 +12,17 @@ import {
 } from 'lucide-react';
 import { Menu, Transition } from '@headlessui/react';
 import ProductCard from '@/components/product/ProductCard';
-// Assuming LoadingSpinner is correctly imported if needed, or use Loader2 from lucide-react
 // import LoadingSpinner from '@/components/common/LoadingSpinner';
 import Button from '@/components/ui/Button';
+import apiGlobal, { endpoints as globalEndpoints } from '@/services/api'; // Use global api instance
 
 
-// Simulated API helper (same as in home-page.js)
-const api = {
-  get: async (url) => {
-    console.log(`Fetching ${url}`);
-    await new Promise(resolve => setTimeout(resolve, 500));
-    if (url === '/api/products') {
-      return {
-        ok: true,
-        json: async () => ({
-          message: 'Placeholder: Get All Products',
-          data: [
-            // Assuming products have a 'category' field that's a simple string slug like 'electronics'
-            // or an object like category: { slug: 'electronics', name: 'لوازم برقی'}
-            // For client-side filtering, a simple slug string is easier.
-            // Adding 'createdAt' for sorting.
-            { _id: '1', id: '1', name: 'هدفون بی‌سیم سونی WH-1000XM4 (API)', price: 4500000, category: 'electronics', image: '🎧', rating: 4.5, discount: 15, inStock: true, createdAt: "2023-03-15T10:00:00Z" },
-            { _id: '2', id: '2', name: 'پاوربانک شیائومی 20000mAh (API)', price: 890000, category: 'electronics', image: '🔋', rating: 4.8, discount: 0, inStock: true, createdAt: "2023-03-10T10:00:00Z" },
-            { _id: '3', id: '3', name: 'کیف دستی چرم طبیعی (API)', price: 2300000, category: 'personal', image: '👜', rating: 4.2, discount: 25, inStock: true, createdAt: "2023-03-01T10:00:00Z" },
-            { _id: '4', id: '4', name: 'ساعت هوشمند اپل واچ سری 8 (API)', price: 12000000, category: 'electronics', image: '⌚', rating: 4.7, discount: 10, inStock: false, createdAt: "2023-02-20T10:00:00Z" },
-            { _id: '5', id: '5', name: 'عینک آفتابی ری بن (API)', price: 3200000, category: 'personal', image: '🕶️', rating: 4.4, discount: 0, inStock: true, createdAt: "2023-02-15T10:00:00Z" },
-            { _id: '6', id: '6', name: 'اسپیکر بلوتوث JBL Flip 6 (API)', price: 3200000, category: 'electronics', image: '🔊', rating: 4.6, discount: 20, inStock: true, createdAt: "2023-02-10T10:00:00Z" },
-            { _id: '7', id: '7', name: 'کوله پشتی لپ تاپ (API)', price: 1500000, category: 'personal', image: '🎒', rating: 4.3, discount: 30, inStock: true, createdAt: "2023-02-01T10:00:00Z" },
-            { _id: '8', id: '8', name: 'موس گیمینگ ریزر (API)', price: 2800000, category: 'electronics', image: '🖱️', rating: 4.9, discount: 0, inStock: true, createdAt: "2023-01-20T10:00:00Z" },
-            { _id: '9', id: '9', name: 'کیبورد مکانیکال (API)', price: 3500000, category: 'electronics', image: '⌨️', rating: 4.7, discount: 15, inStock: true, createdAt: "2023-01-10T10:00:00Z" },
-            { _id: '10', id: '10', name: 'دوربین کانن EOS R5 (API)', price: 85000000, category: 'electronics', image: '📷', rating: 4.9, discount: 5, inStock: false, createdAt: "2023-01-01T10:00:00Z" },
-          ]
-        })
-      };
-    }
-    if (url === '/api/categories') {
-      return {
-        ok: true,
-        json: async () => ({
-          message: 'Placeholder: Get All Categories',
-          data: [
-            // Ensure these categories have a 'value' (like slug) and 'label' (name)
-            { _id: 'cat0', id: 'cat0', name: 'همه دسته‌ها', slug: '', productCount: 0 }, // For "All Categories"
-            { _id: 'cat1', id: 'cat1', name: 'لوازم برقی', slug: 'electronics', productCount: 245 },
-            { _id: 'cat2', id: 'cat2', name: 'وسایل شخصی', slug: 'personal', productCount: 189 },
-            { _id: 'cat3', id: 'cat3', name: 'لوازم منزل', slug: 'home', productCount: 156 },
-            { _id: 'cat4', id: 'cat4', name: 'ورزش و سفر', slug: 'sports', productCount: 98 },
-          ]
-        })
-      };
-    }
-    return { ok: false, status: 404, json: async () => ({ message: 'Not Found' }) };
-  }
-};
-
+// Removed local 'api' simulation object
 
 const Products = () => {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const [allFetchedProducts, setAllFetchedProducts] = useState([]);
+  // const [allFetchedProducts, setAllFetchedProducts] = useState([]); // Will be fetched and set
   const [displayedProducts, setDisplayedProducts] = useState([]);
   const [categoriesFromAPI, setCategoriesFromAPI] = useState([]);
 
@@ -98,15 +50,16 @@ const Products = () => {
       setCategoriesLoading(true);
       setCategoriesError(null);
       try {
-        const response = await api.get('/api/categories'); // Simulated
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const result = await response.json();
-        // Ensure "All Categories" is an option, using slug: ''
+        const response = await apiGlobal.get(globalEndpoints.categories);
+        // Assuming backend for categories returns: { status: 'success', data: { categories: [...] } }
+        // or directly an array { data: [...] }
+        // The interceptor returns response.data.
         const allCatsOption = { _id: 'all', id: 'all', name: 'همه دسته‌ها', slug: '' };
-        setCategoriesFromAPI([allCatsOption, ...(result.data || [])]);
+        setCategoriesFromAPI([allCatsOption, ...(response.data?.categories || response.data || [])]);
       } catch (error) {
         console.error("Failed to fetch categories:", error);
-        setCategoriesError(error.message);
+        // Global interceptor in api-config.js handles toast for error
+        setCategoriesError(error.message || 'خطا در دریافت دسته‌بندی‌ها');
       } finally {
         setCategoriesLoading(false);
       }
@@ -114,25 +67,30 @@ const Products = () => {
     fetchCategories();
   }, []);
 
-  // Fetch all products
+  // Fetch all products (or filtered products if API supports it)
+  // For now, we fetch all and filter client-side.
+  // TODO: Enhance to pass filters (category, search, sort, page) to API.
+  const [allFetchedProducts, setAllFetchedProducts] = useState([]); // Added state back for clarity
   useEffect(() => {
     const fetchProducts = async () => {
       setProductsLoading(true);
       setProductsError(null);
       try {
-        const response = await api.get('/api/products'); // Simulated
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const result = await response.json();
-        setAllFetchedProducts(result.data || []);
+        // For now, fetch all products. Later, pass searchParams to the API.
+        // const queryParams = new URLSearchParams(searchParams).toString();
+        // const response = await apiGlobal.get(`${globalEndpoints.products}?${queryParams}`);
+        const response = await apiGlobal.get(globalEndpoints.products);
+        // Assuming backend for products returns: { status: 'success', data: { products: [...] } }
+        setAllFetchedProducts(response.data?.products || response.data || []);
       } catch (error) {
         console.error("Failed to fetch products:", error);
-        setProductsError(error.message);
+        setProductsError(error.message || 'خطا در دریافت محصولات');
       } finally {
         setProductsLoading(false);
       }
     };
     fetchProducts();
-  }, []);
+  }, [searchParams]); // Refetch if searchParams change, for future API-side filtering
   
   // Static filter options (priceRanges could also be dynamic in a real app)
   const priceRanges = [

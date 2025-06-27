@@ -14,58 +14,16 @@ import {
   AlertTriangle,
   Loader2
 } from 'lucide-react';
-import ProductCard from '@/components/product/ProductCard'; // Assuming this path alias works
+import ProductCard from '@/components/product/ProductCard';
+import api, { endpoints } from '@/services/api'; // Using centralized api instance
 import 'swiper/css';
 import 'swiper/css/pagination';
 import 'swiper/css/navigation';
 
-// Helper function to simulate API calls for now
-// Replace with actual fetch/axios calls to your backend
-const api = {
-  get: async (url) => {
-    console.log(`Fetching ${url}`);
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    if (url === '/api/products') {
-      return {
-        ok: true,
-        json: async () => ({
-          message: 'Placeholder: Get All Products',
-          data: [
-            { _id: '1', id: '1', name: 'هدفون بی‌سیم سونی WH-1000XM4 (API)', price: 4500000, category: 'electronics', image: '🎧', rating: 4.5, discount: 15, createdAt: new Date(2023, 1, 1).toISOString() },
-            { _id: '2', id: '2', name: 'پاوربانک شیائومی 20000mAh (API)', price: 890000, category: 'electronics', image: '🔋', rating: 4.8, discount: 0, createdAt: new Date(2023, 1, 15).toISOString() },
-            { _id: '3', id: '3', name: 'کیف دستی چرم طبیعی (API)', price: 2300000, category: 'personal', image: '👜', rating: 4.2, discount: 25, createdAt: new Date(2023, 0, 10).toISOString() },
-            { _id: '4', id: '4', name: 'ساعت هوشمند اپل واچ سری 8 (API)', price: 12000000, category: 'electronics', image: '⌚', rating: 4.7, discount: 10, createdAt: new Date(2023, 2, 1).toISOString() },
-            { _id: '5', id: '5', name: 'عینک آفتابی ری بن (API)', price: 3200000, category: 'personal', image: '🕶️', rating: 4.4, discount: 0, createdAt: new Date(2023, 0, 1).toISOString() },
-            { _id: '6', id: '6', name: 'اسپیکر بلوتوث JBL Flip 6 (API)', price: 3200000, category: 'electronics', image: '🔊', rating: 4.6, discount: 20, createdAt: new Date(2023, 2, 5).toISOString() },
-            { _id: '7', id: '7', name: 'کوله پشتی لپ تاپ (API)', price: 1500000, category: 'personal', image: '🎒', rating: 4.3, discount: 30, createdAt: new Date(2022, 11, 1).toISOString() },
-            { _id: '8', id: '8', name: 'موس گیمینگ ریزر (API)', price: 2800000, category: 'electronics', image: '🖱️', rating: 4.9, discount: 0, createdAt: new Date(2023, 1, 20).toISOString() },
-          ]
-        })
-      };
-    }
-    if (url === '/api/categories') {
-      return {
-        ok: true,
-        json: async () => ({
-          message: 'Placeholder: Get All Categories',
-          data: [
-            { _id: 'cat1', id: 'cat1', name: 'لوازم برقی (API)', icon: '⚡', slug: 'electronics', productCount: 245 },
-            { _id: 'cat2', id: 'cat2', name: 'وسایل شخصی (API)', icon: '👤', slug: 'personal', productCount: 189 },
-            { _id: 'cat3', id: 'cat3', name: 'لوازم منزل (API)', icon: '🏠', slug: 'home', productCount: 156 },
-            { _id: 'cat4', id: 'cat4', name: 'ورزش و سفر (API)', icon: '⚽', slug: 'sports', productCount: 98 },
-            { _id: 'cat5', id: 'cat5', name: 'مد و پوشاک (API)', icon: '👕', slug: 'fashion', productCount: 312 },
-            { _id: 'cat6', id: 'cat6', name: 'زیبایی و سلامت (API)', icon: '💄', slug: 'beauty', productCount: 223 },
-          ]
-        })
-      };
-    }
-    return { ok: false, status: 404, json: async () => ({ message: 'Not Found' }) };
-  }
-};
+// Removed local 'api' simulation object
 
 const Home = () => {
-  const [allProducts, setAllProducts] = useState([]);
+  // const [allProducts, setAllProducts] = useState([]); // This state will be populated by the products from API response
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [newProducts, setNewProducts] = useState([]);
   const [discountedProducts, setDiscountedProducts] = useState([]);
@@ -81,13 +39,17 @@ const Home = () => {
       setCategoriesLoading(true);
       setCategoriesError(null);
       try {
-        const response = await api.get('/api/categories'); // Replace with actual fetch
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const result = await response.json();
-        setCategoriesData(result.data || []);
+        // The 'api' instance from api-config.js already handles response.data extraction
+        const response = await api.get(endpoints.categories);
+        // Assuming backend returns { status: 'success', data: { categories: [...] } }
+        // or { status: 'success', results: ..., data: { categories: [...] } }
+        // The interceptor in api-config.js returns response.data, so 'response' here is that object.
+        setCategoriesData(response.data?.categories || response.data || []); // Adjust based on actual category API response structure
       } catch (error) {
         console.error("Failed to fetch categories:", error);
-        setCategoriesError(error.message);
+        // Error handling is largely done by the interceptor in api-config.js (shows toasts)
+        // Set local error state if specific UI changes are needed beyond a toast
+        setCategoriesError(error.message || 'خطا در دریافت دسته‌بندی‌ها');
       } finally {
         setCategoriesLoading(false);
       }
@@ -100,23 +62,26 @@ const Home = () => {
       setProductsLoading(true);
       setProductsError(null);
       try {
-        const response = await api.get('/api/products'); // Replace with actual fetch
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const result = await response.json();
-        const products = result.data || [];
-        setAllProducts(products);
+        const response = await api.get(endpoints.products); // Using global 'api' and 'endpoints'
+        // Assuming backend returns { status: 'success', data: { products: [...] } }
+        // or { status: 'success', results: ..., data: { products: [...] } }
+        const fetchedProducts = response.data?.products || response.data || [];
+        // setAllProducts(fetchedProducts); // No longer need allProducts state directly
 
-        if (products.length > 0) {
-          setFeaturedProducts(products.slice(0, 4));
-          const sortedByNewest = [...products].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        if (fetchedProducts.length > 0) {
+          // Logic for featured products might need adjustment if backend provides a flag
+          setFeaturedProducts(fetchedProducts.slice(0, 4)); // Example: first 4 as featured
+
+          const sortedByNewest = [...fetchedProducts].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
           setNewProducts(sortedByNewest.slice(0, 4));
-          setDiscountedProducts(products.filter(p => p.discount && p.discount > 0));
+
+          setDiscountedProducts(fetchedProducts.filter(p => p.discount && p.discount > 0));
         } else {
           setFeaturedProducts([]); setNewProducts([]); setDiscountedProducts([]);
         }
       } catch (error) {
         console.error("Failed to fetch products:", error);
-        setProductsError(error.message);
+        setProductsError(error.message || 'خطا در دریافت محصولات');
       } finally {
         setProductsLoading(false);
       }

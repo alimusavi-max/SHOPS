@@ -2,7 +2,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 
 // Base URL configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'; // Adjusted to HTTP and standard port
 
 // Create axios instance
 const api = axios.create({
@@ -104,7 +104,7 @@ export const endpoints = {
   login: '/auth/login',
   register: '/auth/register',
   logout: '/auth/logout',
-  profile: '/auth/profile',
+  profile: '/auth/me', // Corrected to /auth/me for fetching current user
   refreshToken: '/auth/refresh',
   
   // Products
@@ -118,11 +118,12 @@ export const endpoints = {
   categoryById: (id) => `/categories/${id}`,
   
   // Cart
-  cart: '/cart',
-  addToCart: '/cart/add',
-  updateCartItem: (id) => `/cart/update/${id}`,
-  removeFromCart: (id) => `/cart/remove/${id}`,
-  clearCart: '/cart/clear',
+  cart: '/cart', // GET
+  addToCart: '/cart/add', // POST
+  updateCartItem: (productId) => `/cart/item/${productId}`, // PUT
+  removeFromCart: (productId) => `/cart/item/${productId}`, // DELETE
+  clearCart: '/cart/clear', // DELETE
+  syncCart: '/cart/sync', // POST
   
   // Orders
   orders: '/orders',
@@ -131,8 +132,8 @@ export const endpoints = {
   cancelOrder: (id) => `/orders/${id}/cancel`,
   
   // User
-  updateProfile: '/users/profile',
-  changePassword: '/users/change-password',
+  updateProfile: '/users/profile', // Correct: user-routes.js has PATCH /profile (base /api/users)
+  changePassword: '/auth/update-password', // Corrected to match auth-routes.js
   addresses: '/users/addresses',
   addressById: (id) => `/users/addresses/${id}`,
   

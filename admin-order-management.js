@@ -21,61 +21,12 @@ import {
   Download
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
-// import LoadingSpinner from '@/components/common/LoadingSpinner'; // Will use Loader2
-import { Loader2 } from 'lucide-react'; // Added
+// import LoadingSpinner from '@/components/common/LoadingSpinner';
+import { Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import apiGlobal, { endpoints as globalEndpoints } from '@/services/api'; // Use global api instance
 
-// --- Start of API Simulation for admin-order-management.js ---
-// Admin sees all orders, not just one user's. So, a different mock source.
-let mockAdminOrdersData = [
-    { _id: 'order1', id: 'order1', orderNumber: 'ORD-1001', customer: { name: 'علی احمدی', phone: '09123456789', email: 'ali@example.com' }, createdAt: new Date('2023-03-15T10:30:00Z').toISOString(), status: 'delivered', totalAmount: 4825000, itemsCount: 3, paymentMethod: 'online', paymentStatus: 'paid', shippingMethod: 'express', items: [{ product: { name: 'هدفون (Admin)', _id: 'p1' }, quantity: 1, price: 4825000 }], address: { receiver: 'علی احمدی', address: 'تهران...', postalCode: '12345' } },
-    { _id: 'order2', id: 'order2', orderNumber: 'ORD-1002', customer: { name: 'سارا محمدی', phone: '09198765432', email: 'sara@example.com' }, createdAt: new Date('2023-03-20T14:00:00Z').toISOString(), status: 'processing', totalAmount: 2300000, itemsCount: 1, paymentMethod: 'cash', paymentStatus: 'pending', shippingMethod: 'normal', items: [{ product: { name: 'کیف (Admin)', _id: 'p2' }, quantity: 1, price: 2300000 }], address: { receiver: 'سارا محمدی', address: 'تهران...', postalCode: '98765' } },
-    { _id: 'order3', id: 'order3', orderNumber: 'ORD-1003', customer: { name: 'محمد رضایی', phone: '09351234567', email: 'mohammad@example.com' }, createdAt: new Date('2023-03-22T11:00:00Z').toISOString(), status: 'shipped', totalAmount: 890000, itemsCount: 1, paymentMethod: 'online', paymentStatus: 'paid', shippingMethod: 'express', trackingCode: 'TRKNEW123', items: [{ product: { name: 'پاوربانک (Admin)', _id: 'p3' }, quantity: 1, price: 890000 }], address: { receiver: 'محمد رضایی', address: 'اصفهان...', postalCode: '54321' } },
-];
-
-const localEndpoints = {
-  adminGetAllOrders: '/api/orders/admin/all',
-  adminGetOrderById: (orderId) => `/api/orders/admin/${orderId}`,
-  adminUpdateOrderStatus: (orderId) => `/api/orders/admin/${orderId}/status`,
-};
-
-const localApi = {
-  get: async (url) => {
-    console.log(`ADMIN ORDERS SIMULATED API GET: ${url}`);
-    await new Promise(resolve => setTimeout(resolve, 300));
-    if (url === localEndpoints.adminGetAllOrders) {
-      return { data: JSON.parse(JSON.stringify(mockAdminOrdersData)) };
-    }
-    if (url.startsWith('/api/orders/admin/')) { // For adminGetOrderById
-        const orderId = url.split('/api/orders/admin/')[1];
-        const order = mockAdminOrdersData.find(o => o.id === orderId || o._id === orderId);
-        if (order) {
-            return { data: JSON.parse(JSON.stringify(order)) };
-        }
-        const error = new Error('Simulated API Error');
-        error.response = { data: { message: 'سفارش یافت نشد' }, status: 404 };
-        throw error;
-    }
-    throw new Error(`Unhandled GET ${url} in admin orders simulation`);
-  },
-  patch: async (url, data) => {
-    console.log(`ADMIN ORDERS SIMULATED API PATCH: ${url}`, data);
-    await new Promise(resolve => setTimeout(resolve, 300));
-    if (url.startsWith('/api/orders/admin/') && url.endsWith('/status')) {
-        const orderId = url.split('/api/orders/admin/')[1].split('/status')[0];
-        const orderIndex = mockAdminOrdersData.findIndex(o => o.id === orderId || o._id === orderId);
-        if (orderIndex > -1) {
-            mockAdminOrdersData[orderIndex].status = data.status;
-            return { data: JSON.parse(JSON.stringify(mockAdminOrdersData[orderIndex])), message: 'وضعیت سفارش بروزرسانی شد' };
-        }
-        const error = new Error('Simulated API Error');
-        error.response = { data: { message: 'سفارش برای بروزرسانی یافت نشد' }, status: 404 };
-        throw error;
-    }
-    throw new Error(`Unhandled PATCH ${url} in admin orders simulation`);
-  },
-};
-// --- End of API Simulation ---
+// --- Removed local API Simulation ---
 
 const AdminOrders = () => {
   const [orders, setOrders] = useState([]);
@@ -88,16 +39,32 @@ const AdminOrders = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   
   const itemsPerPage = 10;
+  const [totalOrders, setTotalOrders] = useState(0); // For pagination
 
   const fetchAdminOrders = async () => {
     setLoading(true);
     try {
-      const response = await localApi.get(localEndpoints.adminGetAllOrders);
-      setOrders(response.data || []);
+      // Build query params for backend API
+      const params = {
+        page: currentPage,
+        limit: itemsPerPage,
+        status: selectedStatus === 'all' ? '' : selectedStatus, // only send if not 'all'
+        search: searchQuery
+        // Add date range params if implemented
+      };
+      Object.keys(params).forEach(key => !params[key] && delete params[key]); // Remove empty params
+
+      const response = await apiGlobal.get(globalEndpoints.adminOrders, { params });
+      // Backend response: { status, results, totalOrders, totalPages, currentPage, data: { orders: [] } }
+      // Interceptor returns response.data
+      setOrders(response.data?.orders || response.data || []);
+      setTotalOrders(response.totalOrders || 0);
+      // setCurrentPage(response.currentPage || 1); // API should dictate current page if backend pagination is strict
     } catch (error) {
       console.error("Failed to fetch admin orders:", error);
-      toast.error("خطا در دریافت لیست سفارشات");
+      // Toast handled by global interceptor
       setOrders([]);
+      setTotalOrders(0);
     } finally {
       setLoading(false);
     }
@@ -159,48 +126,50 @@ const AdminOrders = () => {
   }, [orders, searchQuery, selectedStatus]);
 
   // Pagination
-  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
+  const totalPages = Math.ceil(totalOrders / itemsPerPage); // Use totalOrders from API
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedOrders = filteredOrders.slice(startIndex, startIndex + itemsPerPage);
+  // Paginated orders are now directly the 'orders' state if API handles pagination
+  // If API doesn't handle pagination, client-side slicing of filteredOrders is needed.
+  // Assuming API handles pagination based on 'page' and 'limit' params sent in fetchAdminOrders.
+  // So, `paginatedOrders` will just be `filteredOrders` (which is `orders` from API for current page).
+  const paginatedOrders = filteredOrders; // If API does pagination, this is already the current page's data
 
   // Handle status update
   const handleStatusUpdate = async (orderId, newStatus) => {
-    // optimistic update
-    const originalOrders = [...orders];
+    const originalOrders = [...orders]; // Use 'orders' state which is from API
+    // Optimistic UI update
     setOrders(prevOrders => prevOrders.map(order =>
       (order.id === orderId || order._id === orderId) ? { ...order, status: newStatus } : order
     ));
 
     try {
-      await localApi.patch(localEndpoints.adminUpdateOrderStatus(orderId), { status: newStatus });
+      // Use globalEndpoints.adminUpdateOrderStatus(orderId)
+      await apiGlobal.patch(globalEndpoints.adminUpdateOrderStatus(orderId), { status: newStatus });
       toast.success('وضعیت سفارش با موفقیت بروزرسانی شد');
-      // fetchAdminOrders(); // Or rely on optimistic update / ensure API returns updated order to merge
+      // Optionally refetch or update based on response if backend returns updated order
+      // fetchAdminOrders(); // To get the absolute latest state including any server-side changes
     } catch (error) {
-      toast.error('خطا در بروزرسانی وضعیت سفارش');
-      setOrders(originalOrders); // Rollback
+      toast.error('خطا در بروزرسانی وضعیت سفارش'); // Global interceptor might also show a toast
+      setOrders(originalOrders); // Rollback optimistic update
       console.error("Error updating order status:", error);
     }
   };
 
   // View order details
-  const handleViewDetails = async (order) => { // Can make this async if fetching full details
-    // If order object in list is complete, just set it.
-    // If not, fetch full details:
+  const handleViewDetails = async (order) => {
+    // For now, using the order data from the list.
+    // If more detailed data is needed, an API call to globalEndpoints.adminGetOrderById(order._id) would go here.
+    // Example:
     // try {
-    //   setLoading(true); // or a specific modal loading state
-    //   const response = await localApi.get(localEndpoints.adminGetOrderById(order.id || order._id));
-    //   setSelectedOrder(response.data);
-    //   setShowOrderDetails(true);
-    // } catch (error) {
-    //   toast.error("خطا در دریافت جزئیات سفارش");
-    // } finally {
-    //   setLoading(false);
-    // }
-    setSelectedOrder(order); // Using existing data for now
+    //   setShowOrderDetails(true); // Show modal quickly
+    //   const response = await apiGlobal.get(globalEndpoints.adminGetOrderById(order._id || order.id));
+    //   setSelectedOrder(response.data.order || response.data);
+    // } catch(err) { toast.error("خطا در دریافت جزئیات کامل سفارش"); }
+    setSelectedOrder(order);
     setShowOrderDetails(true);
   };
 
-  if (loading) { // Renamed to loading from isLoadingPage for consistency with other admin page
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[70vh] bg-gray-100">
         <Loader2 className="w-12 h-12 animate-spin text-primary-500" />
