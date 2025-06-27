@@ -17,105 +17,12 @@ import {
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
-// import LoadingSpinner from '@/components/common/LoadingSpinner'; // Will use Loader2
-import { Loader2 } from 'lucide-react'; // Added Loader2
+// import LoadingSpinner from '@/components/common/LoadingSpinner';
+import { Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import apiGlobal, { endpoints as globalEndpoints } from '@/services/api'; // Use global api instance
 
-// --- Start of API Simulation for admin-product-management.js ---
-let mockAllProductsData = [ // Renamed to avoid conflict with 'products' state
-    { _id: '1', id: '1', name: 'هدفون بی‌سیم سونی WH-1000XM4 (Sim)', price: 4500000, category: 'electronics', brand: 'Sony', stock: 12, discount: 15, status: 'active', createdAt: '2023-03-15T10:00:00Z', description: 'کیفیت صدای عالی', image: '🎧' },
-    { _id: '2', id: '2', name: 'پاوربانک شیائومی 20000mAh (Sim)', price: 890000, category: 'electronics', brand: 'Xiaomi', stock: 45, discount: 0, status: 'active', createdAt: '2023-03-10T10:00:00Z', description: 'ظرفیت بالا', image: '🔋' },
-    { _id: '3', id: '3', name: 'کیف دستی چرم طبیعی (Sim)', price: 2300000, category: 'personal', brand: 'No Brand', stock: 8, discount: 25, status: 'active', createdAt: '2023-03-01T10:00:00Z', description: 'چرم اصل', image: '👜' },
-    { _id: '4', id: '4', name: 'ساعت هوشمند اپل واچ سری 8 (Sim)', price: 12000000, category: 'electronics', brand: 'Apple', stock: 0, discount: 10, status: 'inactive', createdAt: '2023-02-20T10:00:00Z', description: 'جدیدترین مدل', image: '⌚' },
-];
-
-const findProductInMockListLocal = (productId) =>
-  mockAllProductsData.findIndex(p => p.id === productId || p._id === productId);
-
-const localEndpoints = {
-  getAllProducts: '/api/products',
-  createProduct: '/api/products',
-  updateProduct: (productId) => `/api/products/${productId}`,
-  deleteProduct: (productId) => `/api/products/${productId}`,
-};
-
-const localApi = {
-  get: async (url) => {
-    console.log(`ADMIN SIMULATED API GET: ${url}`);
-    await new Promise(resolve => setTimeout(resolve, 300));
-    if (url === localEndpoints.getAllProducts) {
-      return { data: JSON.parse(JSON.stringify(mockAllProductsData)) }; // Return a deep copy
-    }
-    throw new Error(`Unhandled GET ${url} in admin simulation`);
-  },
-  post: async (url, data) => {
-    console.log(`ADMIN SIMULATED API POST: ${url}`, data);
-    await new Promise(resolve => setTimeout(resolve, 300));
-    if (url === localEndpoints.createProduct) {
-      const newProduct = {
-        _id: `prod_${Date.now()}`,
-        id: `prod_${Date.now()}`,
-        ...data,
-        price: parseFloat(data.price) || 0,
-        stock: parseInt(data.stock) || 0,
-        discount: parseFloat(data.discount) || 0,
-        status: (parseInt(data.stock) || 0) > 0 ? 'active' : 'inactive',
-        createdAt: new Date().toISOString(),
-        image: data.image instanceof File ? URL.createObjectURL(data.image) : (data.image || '🆕'), // Simulate URL for preview
-      };
-      mockAllProductsData.push(newProduct);
-      return { data: JSON.parse(JSON.stringify(newProduct)), message: 'محصول با موفقیت ایجاد شد' };
-    }
-    throw new Error(`Unhandled POST ${url} in admin simulation`);
-  },
-  patch: async (url, data) => {
-    console.log(`ADMIN SIMULATED API PATCH: ${url}`, data);
-    await new Promise(resolve => setTimeout(resolve, 300));
-    const productId = url.split('/api/products/')[1];
-    if (url.startsWith(localEndpoints.getAllProducts + '/')) { // Check if it's an update product URL
-        const productIndex = findProductInMockListLocal(productId);
-        if (productIndex > -1) {
-            const updatedProduct = {
-                ...mockAllProductsData[productIndex],
-                ...data,
-                price: parseFloat(data.price) || mockAllProductsData[productIndex].price,
-                stock: parseInt(data.stock) === undefined ? mockAllProductsData[productIndex].stock : parseInt(data.stock),
-                discount: parseFloat(data.discount) === undefined ? mockAllProductsData[productIndex].discount : parseFloat(data.discount),
-            };
-            if (data.image instanceof File) {
-                updatedProduct.image = URL.createObjectURL(data.image); // Update image preview URL
-            } // else keep existing image if data.image is not a new file
-
-            mockAllProductsData[productIndex] = updatedProduct;
-            return { data: JSON.parse(JSON.stringify(updatedProduct)), message: 'محصول با موفقیت بروزرسانی شد' };
-        } else {
-            const error = new Error('Simulated API Error');
-            error.response = { data: { message: 'محصول برای بروزرسانی یافت نشد' }, status: 404 };
-            throw error;
-        }
-    }
-    throw new Error(`Unhandled PATCH ${url} in admin simulation`);
-  },
-  delete: async (url) => {
-    console.log(`ADMIN SIMULATED API DELETE: ${url}`);
-    await new Promise(resolve => setTimeout(resolve, 300));
-    if (url.startsWith(localEndpoints.getAllProducts + '/')) { // Check if it's a delete product URL
-        const productId = url.split('/api/products/')[1];
-        const productIndex = findProductInMockListLocal(productId);
-        if (productIndex > -1) {
-            const deletedProduct = mockAllProductsData.splice(productIndex, 1);
-            return { data: JSON.parse(JSON.stringify(deletedProduct[0])), message: 'محصول با موفقیت حذف شد' };
-        } else {
-            const error = new Error('Simulated API Error');
-            error.response = { data: { message: 'محصول برای حذف یافت نشد' }, status: 404 };
-            throw error;
-        }
-    }
-    throw new Error(`Unhandled DELETE ${url} in admin simulation`);
-  }
-};
-// --- End of API Simulation ---
-
+// --- Removed local API Simulation (mockAllProductsData, localEndpoints, localApi) ---
 
 const AdminProducts = () => {
   const [products, setProducts] = useState([]);
@@ -139,12 +46,14 @@ const AdminProducts = () => {
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      const response = await localApi.get(localEndpoints.getAllProducts);
-      setProducts(response.data || []);
+      // Use globalEndpoints.products for GET all
+      const response = await apiGlobal.get(globalEndpoints.products);
+      // Backend response for GET /api/products is { status, results, totalPages, currentPage, data: { products: [] } }
+      setProducts(response.data?.products || response.data || []); // Adjust based on actual structure from interceptor
     } catch (error) {
       console.error("Failed to fetch products:", error);
-      toast.error("خطا در دریافت لیست محصولات");
-      setProducts([]); // Set to empty array on error
+      // Toast is handled by global interceptor
+      setProducts([]);
     } finally {
       setLoading(false);
     }
@@ -201,12 +110,12 @@ const AdminProducts = () => {
 
     try {
       if (showEditModal && selectedProduct) {
-        // Update product
-        await localApi.patch(localEndpoints.updateProduct(selectedProduct.id || selectedProduct._id), productData);
+        // Update product - use globalEndpoints.productById for PATCH URL
+        await apiGlobal.patch(globalEndpoints.productById(selectedProduct.id || selectedProduct._id), productData);
         toast.success('محصول با موفقیت ویرایش شد');
       } else {
-        // Add new product
-        await localApi.post(localEndpoints.createProduct, productData);
+        // Add new product - use globalEndpoints.products for POST URL
+        await apiGlobal.post(globalEndpoints.products, productData);
         toast.success('محصول با موفقیت اضافه شد');
       }
       setShowAddModal(false);
@@ -215,7 +124,8 @@ const AdminProducts = () => {
       fetchProducts(); // Refetch products to update the list
     } catch (error) {
       console.error("Error submitting product:", error);
-      toast.error(error.response?.data?.message || "خطا در ثبت محصول");
+      // Toast likely handled by interceptor, but can add specific one if needed
+      // toast.error(error.response?.data?.message || "خطا در ثبت محصول");
     } finally {
       setIsSubmitting(false);
     }
@@ -256,14 +166,14 @@ const AdminProducts = () => {
   // Handle delete
   const handleDelete = async (id) => {
     if (window.confirm('آیا از حذف این محصول اطمینان دارید؟')) {
-      setIsSubmitting(true); // Can use a general loading or specific delete loading state
+      setIsSubmitting(true);
       try {
-        await localApi.delete(localEndpoints.deleteProduct(id));
+        await apiGlobal.delete(globalEndpoints.productById(id));
         toast.success('محصول با موفقیت حذف شد');
         fetchProducts(); // Refetch products
       } catch (error) {
         console.error("Error deleting product:", error);
-        toast.error(error.response?.data?.message || "خطا در حذف محصول");
+        // Toast likely handled by interceptor
       } finally {
         setIsSubmitting(false);
       }
